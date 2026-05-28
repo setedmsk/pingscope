@@ -85,6 +85,11 @@ No celular, coloque no campo `Servidor` a URL de rede do backend, por exemplo
 Navegadores e apps mobile comuns nao fazem ICMP ping direto de forma confiavel.
 Por isso o backend faz o ping e o app so consome a API.
 
+Em hospedagens gratuitas, o ICMP pode ser bloqueado pelo provedor. Quando isso
+acontece, o PingScope tenta um fallback TCP em portas comuns, como 443, 80, 53,
+22 e 8080. Nesse caso, a interface mostra o metodo usado, por exemplo
+`TCP:443`, em vez de `ICMP`.
+
 ## Deploy gratis no Render
 
 Este projeto precisa de um Web Service porque o backend executa o comando

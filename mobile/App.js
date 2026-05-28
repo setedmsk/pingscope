@@ -29,6 +29,14 @@ function formatTime(value) {
   }).format(new Date(value));
 }
 
+function formatMethod(result) {
+  if (result?.method === "tcp") {
+    return result.port ? `TCP:${result.port}` : "TCP";
+  }
+
+  return "ICMP";
+}
+
 export default function App() {
   const [serverUrl, setServerUrl] = useState("http://localhost:4173");
   const [target, setTarget] = useState("8.8.8.8");
@@ -130,7 +138,10 @@ export default function App() {
             <Text style={styles.resultLabel}>Status</Text>
             <Text style={styles.statusTitle}>{loading ? "Pingando" : status}</Text>
             <Text style={styles.statusDetail}>
-              {error || (result ? `${result.target} - ${formatTime(result.checkedAt)}` : "Aguardando destino.")}
+              {error ||
+                (result
+                  ? `${result.target} - ${formatTime(result.checkedAt)} - ${formatMethod(result)}`
+                  : "Aguardando destino.")}
             </Text>
           </View>
         </View>
@@ -211,7 +222,9 @@ export default function App() {
                 <Text numberOfLines={1} style={styles.historyTarget}>
                   {item.target}
                 </Text>
-                <Text style={styles.historyTime}>{formatTime(item.checkedAt)}</Text>
+                <Text style={styles.historyTime}>
+                  {formatTime(item.checkedAt)} - {formatMethod(item)}
+                </Text>
               </View>
               <Text style={styles.historyLatency}>
                 {item.online && item.latencyMs !== null ? `${item.latencyMs} ms` : "offline"}

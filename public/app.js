@@ -60,10 +60,19 @@ function setCurrentState(state, resultOrMessage) {
   }
 
   const result = resultOrMessage;
+  const methodLabel = formatMethod(result);
   signalRing.classList.add(result.online ? "online" : "offline");
   statusTitle.textContent = result.online ? "Online" : "Offline";
-  statusDetail.textContent = `${result.target} - ${formatTime(result.checkedAt)}`;
+  statusDetail.textContent = `${result.target} - ${formatTime(result.checkedAt)} - ${methodLabel}`;
   signalValue.textContent = result.online && result.latencyMs !== null ? `${Math.round(result.latencyMs)}ms` : "OFF";
+}
+
+function formatMethod(result) {
+  if (result.method === "tcp") {
+    return result.port ? `TCP:${result.port}` : "TCP";
+  }
+
+  return "ICMP";
 }
 
 function formatTime(value) {
@@ -106,7 +115,7 @@ function renderHistory() {
 
     const time = document.createElement("div");
     time.className = "history-time";
-    time.textContent = formatTime(result.checkedAt);
+    time.textContent = `${formatTime(result.checkedAt)} - ${formatMethod(result)}`;
 
     const latency = document.createElement("div");
     latency.className = "history-latency";

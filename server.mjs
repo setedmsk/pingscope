@@ -56,6 +56,17 @@ function parseNumber(value, fallback, min, max) {
   return Math.max(min, Math.min(max, Math.round(parsed)));
 }
 
+function parsePorts(value) {
+  if (!value) return [443, 80, 53, 22, 8080];
+
+  const values = Array.isArray(value) ? value : String(value).split(",");
+  const ports = values
+    .map((item) => Number(item))
+    .filter((port) => Number.isInteger(port) && port > 0 && port <= 65535);
+
+  return ports.length ? [...new Set(ports)].slice(0, 8) : [443, 80, 53, 22, 8080];
+}
+
 function validateTarget(value) {
   const target = String(value || "").trim();
 
@@ -147,47 +158,150 @@ function parsePingOutput(output) {
   return { latencyMs, packetLoss };
 }
 
+function icmpUnavailableResult(target, startedAt, error) {
+  const durationMs = Math.round((performance.now() - startedAt) * 10) / 10;
+
+  return {
+    target,
+    method: "icmp",
+    online: false,
+    latencyMs: null,
+    durationMs,
+    packetLoss: null,
+    checkedAt: new Date().toISOString(),
+    raw: error?.message || "",
+    error: readablePingError(error),
+    errorCode: error?.code || "ICMP_UNAVAILABLE"
+  };
+}
+
 function runPing(target, options) {
   const { command, args, timeoutMs } = pingArgs(target, options);
   const startedAt = performance.now();
 
-  return new Promise((resolve) => {
-    execFile(
-      command,
-      args,
-      {
-        timeout: timeoutMs + 1500,
-        windowsHide: true,
-        maxBuffer: 64_000
-      },
-      (error, stdout, stderr) => {
-        const durationMs = Math.round((performance.now() - startedAt) * 10) / 10;
-        const output = `${stdout || ""}\n${stderr || ""}`.trim();
-        const parsed = parsePingOutput(output);
-        const online = !error && (parsed.packetLoss === null || parsed.packetLoss < 100);
-
-        resolve({
-          target,
-          online,
-          latencyMs: online ? parsed.latencyMs ?? durationMs : null,
-          durationMs,
-          packetLoss: parsed.packetLoss,
-          checkedAt: new Date().toISOString(),
-          raw: output.split(/\r?\n/).slice(-8).join("\n"),
-          error: error ? readablePingError(error) : null
-        });
-      }
+  if (process.env.PINGSCOPE_FORCE_TCP === "1") {
+    return Promise.resolve(
+      icmpUnavailableResult(target, startedAt, {
+        code: "ICMP_DISABLED",
+        message: "ICMP desativado por configuracao."
+      })
     );
+  }
+
+  return new Promise((resolve) => {
+    try {
+      execFile(
+        command,
+        args,
+        {
+          timeout: timeoutMs + 1500,
+          windowsHide: true,
+          maxBuffer: 64_000
+        },
+        (error, stdout, stderr) => {
+          const durationMs = Math.round((performance.now() - startedAt) * 10) / 10;
+          const output = `${stdout || ""}\n${stderr || ""}`.trim();
+          const parsed = parsePingOutput(output);
+          const online = !error && (parsed.packetLoss === null || parsed.packetLoss < 100);
+
+          resolve({
+            target,
+            method: "icmp",
+            online,
+            latencyMs: online ? parsed.latencyMs ?? durationMs : null,
+            durationMs,
+            packetLoss: parsed.packetLoss,
+            checkedAt: new Date().toISOString(),
+            raw: output.split(/\r?\n/).slice(-8).join("\n"),
+            error: error ? readablePingError(error) : null,
+            errorCode: error?.code || null
+          });
+        }
+      );
+    } catch (error) {
+      resolve(icmpUnavailableResult(target, startedAt, error));
+    }
   });
 }
 
+function isIcmpUnavailable(result) {
+  return ["EPERM", "EACCES", "ENOENT", "ICMP_DISABLED", "ICMP_UNAVAILABLE"].includes(result.errorCode);
+}
+
+function checkTcpPort(target, port, timeoutMs) {
+  const startedAt = performance.now();
+
+  return new Promise((resolve) => {
+    let socket;
+    let settled = false;
+
+    function finish(online, error = null) {
+      if (settled) return;
+      settled = true;
+      socket?.destroy();
+      resolve({
+        port,
+        online,
+        latencyMs: online ? Math.round((performance.now() - startedAt) * 10) / 10 : null,
+        error
+      });
+    }
+
+    try {
+      socket = net.createConnection({ host: target, port });
+    } catch (error) {
+      finish(false, error.code || error.message);
+      return;
+    }
+
+    socket.setTimeout(timeoutMs);
+    socket.once("connect", () => finish(true));
+    socket.once("timeout", () => finish(false, "timeout"));
+    socket.once("error", (error) => finish(false, error.code || error.message));
+  });
+}
+
+async function runTcpProbe(target, options, reason) {
+  const timeoutMs = parseNumber(options.timeoutMs, 2500, 500, 10_000);
+  const ports = parsePorts(options.ports);
+  const startedAt = performance.now();
+  const results = await Promise.all(ports.map((port) => checkTcpPort(target, port, timeoutMs)));
+  const open = results.find((result) => result.online);
+  const durationMs = Math.round((performance.now() - startedAt) * 10) / 10;
+
+  return {
+    target,
+    method: "tcp",
+    port: open?.port || null,
+    online: Boolean(open),
+    latencyMs: open?.latencyMs || null,
+    durationMs,
+    packetLoss: null,
+    checkedAt: new Date().toISOString(),
+    raw: results.map((result) => `${result.port}: ${result.online ? "open" : result.error || "closed"}`).join("\n"),
+    error: open ? null : "Nenhuma porta TCP comum respondeu.",
+    errorCode: open ? null : "TCP_UNREACHABLE",
+    note: reason ? "ICMP indisponivel neste host; teste TCP usado." : "Teste TCP usado."
+  };
+}
+
 function readablePingError(error) {
+  if (!error) return null;
+
   if (error.killed || error.signal === "SIGTERM") {
     return "Tempo esgotado.";
   }
 
   if (error.code === "ENOENT") {
     return "Comando ping nao encontrado neste sistema.";
+  }
+
+  if (error.code === "EPERM" || error.code === "EACCES") {
+    return "ICMP indisponivel neste servidor.";
+  }
+
+  if (error.code === "ICMP_DISABLED") {
+    return "ICMP desativado por configuracao.";
   }
 
   return "Sem resposta do destino.";
@@ -209,10 +323,21 @@ async function handlePing(request, response, url) {
       return;
     }
 
-    const result = await runPing(validation.target, {
+    let result = await runPing(validation.target, {
       timeoutMs: payload.timeoutMs,
       count: payload.count
     });
+
+    if (!result.online && isIcmpUnavailable(result)) {
+      result = await runTcpProbe(
+        validation.target,
+        {
+          timeoutMs: payload.timeoutMs,
+          ports: payload.ports
+        },
+        result.error
+      );
+    }
 
     history.unshift(result);
     history.splice(50);
