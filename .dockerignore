@@ -1,0 +1,13 @@
+.git
+.gitignore
+node_modules
+mobile/node_modules
+.expo
+dist
+build
+*.log
+.env
+.env.*
+Dockerfile
+README.md
+pingscope-mobile-check.png
