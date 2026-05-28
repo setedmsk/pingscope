@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "PingScope",
+    "slug": "pingscope",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#101820"
+      }
+    }
+  }
+}

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#101820" />
+    <title>PingScope</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Network tool</p>
+          <h1>PingScope</h1>
+        </div>
+        <div class="status-pill" id="serverStatus">
+          <span></span>
+          API
+        </div>
+      </header>
+
+      <section class="hero-panel" aria-label="Resultado atual">
+        <div class="result-main">
+          <div class="signal-ring" id="signalRing">
+            <span id="signalValue">--</span>
+          </div>
+          <div>
+            <p class="result-label">Status</p>
+            <h2 id="statusTitle">Pronto</h2>
+            <p id="statusDetail">Aguardando destino.</p>
+          </div>
+        </div>
+        <canvas id="latencyChart" width="560" height="160" aria-label="Grafico de latencia"></canvas>
+      </section>
+
+      <form class="control-panel" id="pingForm">
+        <label class="field">
+          <span>Destino</span>
+          <input id="targetInput" name="target" inputmode="url" autocomplete="off" placeholder="8.8.8.8 ou exemplo.com" />
+        </label>
+
+        <div class="quick-targets" aria-label="Destinos rapidos">
+          <button type="button" data-target="8.8.8.8">8.8.8.8</button>
+          <button type="button" data-target="1.1.1.1">1.1.1.1</button>
+          <button type="button" data-target="google.com">google.com</button>
+        </div>
+
+        <div class="settings-grid">
+          <label class="field compact">
+            <span>Timeout</span>
+            <select id="timeoutInput" name="timeoutMs">
+              <option value="1000">1s</option>
+              <option value="2500" selected>2.5s</option>
+              <option value="5000">5s</option>
+              <option value="10000">10s</option>
+            </select>
+          </label>
+
+          <label class="field compact">
+            <span>Pacotes</span>
+            <select id="countInput" name="count">
+              <option value="1" selected>1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="actions">
+          <button class="primary-action" type="submit" id="pingButton">Pingar</button>
+          <label class="toggle">
+            <input id="autoToggle" type="checkbox" />
+            <span>Auto</span>
+          </label>
+          <select class="interval-select" id="intervalInput" aria-label="Intervalo automatico">
+            <option value="5000">5s</option>
+            <option value="10000" selected>10s</option>
+            <option value="30000">30s</option>
+          </select>
+        </div>
+      </form>
+
+      <section class="history-panel" aria-label="Historico">
+        <div class="section-header">
+          <h2>Historico</h2>
+          <button type="button" id="clearHistory">Limpar</button>
+        </div>
+        <ul id="historyList" class="history-list"></ul>
+      </section>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
