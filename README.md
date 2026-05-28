@@ -3,6 +3,8 @@
 Ferramenta para testar se um IP ou dominio responde a ping, com backend Node.js,
 interface web mobile-first/PWA e base de app mobile em Expo.
 
+App ao vivo: https://pingscope.onrender.com
+
 ![PingScope mobile preview](./pingscope-mobile-check.png)
 
 ## Funcionalidades
